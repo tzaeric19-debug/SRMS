@@ -22,3 +22,9 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.log
+
+venv/
+local_backups/
+backups/
+__pycache__/
+*.db
