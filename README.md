@@ -63,6 +63,21 @@ pip install -r requirements.txt
 python app.py
 ```
 
+## Screenshots
+
+### Dashboard
+
+![Dashboard](screenshots/dashboard.png)
+
+### Students Module
+
+![Students Module](screenshots/students.png)
+
+### Results Dashboard
+
+![Results Dashboard](screenshots/results.png)
+
+
 ## Project Status
 
 Current Version: V5
