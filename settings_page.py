@@ -4,6 +4,7 @@ from PySide6.QtWidgets import (
 )
 from db_utils import get_cursor, fetch_all, execute, execute_many
 from security_settings import authorize_action
+from event_bus import EventBus
 
 class SettingsPage(QWidget):
     def __init__(self):
@@ -62,7 +63,8 @@ class SettingsPage(QWidget):
         sys_group.setStyleSheet(group_style)
         sys_form = QFormLayout(sys_group)
         self.theme = QComboBox()
-        self.theme.addItems(["Dark", "Light", "System Blue"])
+        self.theme.addItems(["Dark", "Light"])
+        self.theme.currentTextChanged.connect(self._on_theme_changed)
         self.default_level = QComboBox()
         self.default_level.addItems(["O_LEVEL", "A_LEVEL"])
         self.backup_folder = QLineEdit()
@@ -146,6 +148,11 @@ class SettingsPage(QWidget):
             from database import init_db
             init_db()
             self.load_settings()
+
+    def _on_theme_changed(self, theme_name):
+        """Apply theme change immediately via EventBus."""
+        EventBus.emit("THEME_CHANGED", theme_name)
+
 
 def get_setting(key, default=None):
     from db_utils import fetch_one
