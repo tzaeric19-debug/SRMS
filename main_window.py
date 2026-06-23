@@ -15,6 +15,8 @@ from PySide6.QtWidgets import (
 
 from event_bus import EventBus
 from system_state import SystemState
+from help_guide import HelpGuideDialog
+from theme import get_theme
 
 from dashboard_home import DashboardHome
 from students_page import StudentsPage
@@ -52,34 +54,53 @@ class MainWindow(QMainWindow):
             font-weight:bold;
         """)
 
-        
+        # Level toggle - clear switch style
         self.level_btn = QPushButton()
 
         current_level = SystemState.get_level()
 
         if current_level == "A_LEVEL":
-            self.level_btn.setText("🎓 A-Level")
+            self.level_btn.setText("  A-LEVEL  ")
         else:
-            self.level_btn.setText("🎓 O-Level")
+            self.level_btn.setText("  O-LEVEL  ")
 
         self.level_btn.clicked.connect(
             self.toggle_level
         )
+        self.level_btn.setToolTip(
+            "Click to switch between O-Level and A-Level"
+        )
 
-        self.level_btn.setStyleSheet("""
+        self._update_level_btn_style()
+
+        # Help button
+        self.help_btn = QPushButton("?")
+        self.help_btn.setToolTip("Getting Started Guide")
+        self.help_btn.setFixedSize(42, 42)
+        self.help_btn.setCursor(Qt.PointingHandCursor)
+        self.help_btn.setStyleSheet("""
             QPushButton{
-                background:rgba(37,99,235,0.18);
-                border:1px solid rgba(59,130,246,0.50);
-                border-radius:18px;
-                padding:10px 18px;
-                color:white;
-                font-weight:700;
+                background:rgba(34,197,94,0.20);
+                border:2px solid rgba(34,197,94,0.60);
+                border-radius:21px;
+                color:#4ade80;
+                font-size:20px;
+                font-weight:900;
             }
-
             QPushButton:hover{
-                background:rgba(59,130,246,0.30);
+                background:rgba(34,197,94,0.35);
             }
         """)
+        self.help_btn.clicked.connect(self.show_help)
+
+        # Theme toggle button
+        self.theme_btn = QPushButton()
+        self.theme_btn.setToolTip("Switch between Light and Dark theme")
+        self.theme_btn.setFixedSize(42, 42)
+        self.theme_btn.setCursor(Qt.PointingHandCursor)
+        self.current_theme = "Dark"
+        self._update_theme_btn()
+        self.theme_btn.clicked.connect(self.toggle_theme)
 
         self.refresh_btn = QPushButton()
         self.refresh_btn.setIcon(QIcon("assets/icons/refresh.svg"))
@@ -101,8 +122,19 @@ class MainWindow(QMainWindow):
             self.refresh_all
         )
 
+        # Breadcrumb label
+        self.breadcrumb = QLabel("")
+        self.breadcrumb.setStyleSheet("""
+            font-size: 13px;
+            color: #64748b;
+            padding: 0 8px;
+        """)
+
         top_bar.addWidget(self.title)
+        top_bar.addWidget(self.breadcrumb)
         top_bar.addStretch()
+        top_bar.addWidget(self.help_btn)
+        top_bar.addWidget(self.theme_btn)
         top_bar.addWidget(self.level_btn)
         top_bar.addWidget(self.refresh_btn)
 
@@ -466,6 +498,11 @@ class MainWindow(QMainWindow):
             self.open_results_entry
         )
 
+        EventBus.subscribe(
+            "THEME_CHANGED",
+            self._apply_theme
+        )
+
         # =====================================
         # DEFAULT PAGE
         # =====================================
@@ -489,6 +526,7 @@ class MainWindow(QMainWindow):
         self.stack.setCurrentWidget(page)
         self.active_btn = button
         self.update_highlight(button)
+        self._update_breadcrumb(button)
 
     def update_highlight(
         self,
@@ -566,12 +604,106 @@ class MainWindow(QMainWindow):
 
         if current == "O_LEVEL":
             SystemState.set_level("A_LEVEL")
-            self.level_btn.setText("🎓 A-Level")
+            self.level_btn.setText("  A-LEVEL  ")
         else:
             SystemState.set_level("O_LEVEL")
-            self.level_btn.setText("🎓 O-Level")
+            self.level_btn.setText("  O-LEVEL  ")
 
+        self._update_level_btn_style()
         self.refresh_all()
+
+    def _update_level_btn_style(self):
+        """Style the level button as a clear toggle switch."""
+        current = SystemState.get_level()
+        if current == "A_LEVEL":
+            self.level_btn.setStyleSheet("""
+                QPushButton{
+                    background:rgba(147,51,234,0.25);
+                    border:2px solid rgba(168,85,247,0.70);
+                    border-radius:18px;
+                    padding:10px 18px;
+                    color:#c084fc;
+                    font-weight:800;
+                    font-size:14px;
+                    letter-spacing:1px;
+                }
+                QPushButton:hover{
+                    background:rgba(168,85,247,0.35);
+                }
+            """)
+        else:
+            self.level_btn.setStyleSheet("""
+                QPushButton{
+                    background:rgba(37,99,235,0.25);
+                    border:2px solid rgba(59,130,246,0.70);
+                    border-radius:18px;
+                    padding:10px 18px;
+                    color:#93c5fd;
+                    font-weight:800;
+                    font-size:14px;
+                    letter-spacing:1px;
+                }
+                QPushButton:hover{
+                    background:rgba(59,130,246,0.35);
+                }
+            """)
+
+    def show_help(self):
+        """Show the Getting Started guide dialog."""
+        dialog = HelpGuideDialog(self)
+        dialog.exec()
+
+    def toggle_theme(self):
+        """Toggle between Light and Dark themes."""
+        if self.current_theme == "Dark":
+            self.current_theme = "Light"
+        else:
+            self.current_theme = "Dark"
+
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if app:
+            app.setStyleSheet(get_theme(self.current_theme))
+        self._update_theme_btn()
+
+    def _update_theme_btn(self):
+        """Update the theme button icon/text based on current theme."""
+        if self.current_theme == "Dark":
+            self.theme_btn.setText("☀")
+            self.theme_btn.setStyleSheet("""
+                QPushButton{
+                    background:rgba(251,191,36,0.15);
+                    border:2px solid rgba(251,191,36,0.50);
+                    border-radius:21px;
+                    color:#fbbf24;
+                    font-size:20px;
+                }
+                QPushButton:hover{
+                    background:rgba(251,191,36,0.30);
+                }
+            """)
+        else:
+            self.theme_btn.setText("🌙")
+            self.theme_btn.setStyleSheet("""
+                QPushButton{
+                    background:rgba(99,102,241,0.15);
+                    border:2px solid rgba(99,102,241,0.50);
+                    border-radius:21px;
+                    color:#818cf8;
+                    font-size:20px;
+                }
+                QPushButton:hover{
+                    background:rgba(99,102,241,0.30);
+                }
+            """)
+
+    def _update_breadcrumb(self, button):
+        """Update breadcrumb based on current page."""
+        page_name = button.toolTip() if button else ""
+        if page_name and page_name != "Dashboard":
+            self.breadcrumb.setText(f" > {page_name}")
+        else:
+            self.breadcrumb.setText("")
 
 
     # =====================================
@@ -646,3 +778,12 @@ class MainWindow(QMainWindow):
                     print(error)
 
                 break
+
+    def _apply_theme(self, theme_name):
+        """Apply theme from settings change event."""
+        self.current_theme = theme_name
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if app:
+            app.setStyleSheet(get_theme(theme_name))
+        self._update_theme_btn()
