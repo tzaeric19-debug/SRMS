@@ -137,7 +137,6 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("SRMS V5")
-        self.resize(1400, 850)
 
         root = QWidget()
         self.setCentralWidget(root)
