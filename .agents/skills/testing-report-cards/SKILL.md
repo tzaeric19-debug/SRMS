@@ -12,7 +12,7 @@ SRMS is a PySide6 desktop app for school result management. The report card gene
 
 ### Dependencies
 ```bash
-cd /home/ubuntu/SRMS
+cd <repo_root>
 pip install PySide6 reportlab openpyxl
 ```
 
