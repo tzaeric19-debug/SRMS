@@ -328,7 +328,7 @@ class EnrollmentPage(QWidget):
             QMessageBox.information(self, "Success", "Enrollments saved successfully.")
             
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save enrollments: {str(e)}")
+            QMessageBox.critical(self, "Error", "An unexpected error occurred while saving enrollments.")
         
         self.load_enrollment_data()
 
@@ -414,4 +414,4 @@ class EnrollmentPage(QWidget):
             QMessageBox.information(self, "Import Complete", f"Imported {imported} enrollment records.")
             
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Import failed: {str(e)}")
+            QMessageBox.critical(self, "Error", "Import failed. Please check the file format and try again.")

@@ -10,6 +10,7 @@ from database import connect
 from system_state import SystemState
 from event_bus import EventBus
 from class_utils import get_classes
+from security_settings import authorize_action
 import excel_utils
 
 
@@ -255,7 +256,8 @@ class RequirementsPage(QWidget):
             self.load_data()
             QMessageBox.information(self, "Success", "Requirement saved.")
         except Exception as e:
-            QMessageBox.critical(self, "Error", str(e))
+            print(f"[ERROR] Failed to save requirement: {e}")
+            QMessageBox.critical(self, "Error", "An unexpected error occurred while saving the requirement.")
         finally:
             conn.close()
 
@@ -277,6 +279,9 @@ class RequirementsPage(QWidget):
         
         reply = QMessageBox.question(self, "Confirm", "Delete this requirement?", QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.No: return
+
+        if not authorize_action(self, "Delete Requirement"):
+            return
 
         conn = connect()
         cur = conn.cursor()
@@ -385,4 +390,4 @@ class RequirementsPage(QWidget):
             QMessageBox.information(self, "Import Complete", f"Imported {imported} requirement items.")
             
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Import failed: {str(e)}")
+            QMessageBox.critical(self, "Error", "Import failed. Please check the file format and try again.")
