@@ -1,10 +1,15 @@
+import os
+import re
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit,
     QPushButton, QMessageBox, QLabel, QGroupBox, QCheckBox, QComboBox, QScrollArea
 )
-from db_utils import get_cursor, fetch_all, execute, execute_many
+from db_utils import fetch_all, execute, execute_many
 from security_settings import authorize_action
 from event_bus import EventBus
+
+_SAFE_BACKUP_PATH = re.compile(r'^[\w./ \\:-]+$')
 
 class SettingsPage(QWidget):
     def __init__(self):
@@ -104,11 +109,17 @@ class SettingsPage(QWidget):
         self.auto_promotion.setChecked(settings.get('auto_promotion') == '1')
         self.confirm_promotion.setChecked(settings.get('confirm_promotion') == '1')
         self.auto_backup.setChecked(settings.get('auto_backup') == '1')
-        self.theme.setCurrentText(settings.get('theme', 'Dark'))
+        saved_theme = settings.get('theme', 'Dark')
+        if self.theme.findText(saved_theme) == -1:
+            saved_theme = 'Dark'
+        self.theme.setCurrentText(saved_theme)
         self.default_level.setCurrentText(settings.get('default_level', 'O_LEVEL'))
         self.backup_folder.setText(settings.get('backup_folder', './backups'))
 
     def save_settings(self):
+        if not authorize_action(self, "System Settings Changes"):
+            return
+
         # Validate numeric inputs
         o_counted = self.o_level_counted.text().strip()
         a_principal = self.a_level_principal.text().strip()
@@ -119,6 +130,13 @@ class SettingsPage(QWidget):
         if not a_principal.isdigit() or not (1 <= int(a_principal) <= 10):
             QMessageBox.warning(self, "Validation Error", "A-Level Principal Subjects must be a number between 1 and 10.")
             return
+
+        backup_path = self.backup_folder.text().strip()
+        if backup_path:
+            normalized = os.path.normpath(backup_path)
+            if not _SAFE_BACKUP_PATH.match(normalized) or '..' in normalized.split(os.sep):
+                QMessageBox.warning(self, "Validation Error", "Backup folder path contains invalid characters or traversal sequences.")
+                return
 
         data = [
             ('o_level_counted', o_counted),
@@ -161,4 +179,13 @@ def get_setting(key, default=None):
         return res[0] if res else default
     except Exception as e:
         print(f"[ERROR] Failed to read setting '{key}': {e}")
+        return default
+
+
+def get_int_setting(key, default):
+    """Return an integer system setting, falling back to *default* on any error."""
+    raw = get_setting(key, str(default))
+    try:
+        return int(raw)
+    except (ValueError, TypeError):
         return default

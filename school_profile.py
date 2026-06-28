@@ -225,7 +225,7 @@ class SchoolProfilePage(QWidget):
                 if self.dashboard_bg_path: self.show_preview(self.dashboard_bg_preview, self.dashboard_bg_path)
         except Exception as e:
             print(f"[ERROR] Failed to load school profile: {e}")
-            QMessageBox.warning(self, "Load Error", f"Could not load school profile data: {e}")
+            QMessageBox.warning(self, "Load Error", "Could not load school profile data.")
 
     def save_profile(self):
         if not authorize_action(self, "School Profile Changes"):
@@ -249,8 +249,8 @@ class SchoolProfilePage(QWidget):
                     self.dashboard_bg_path, self.watermark_text.text() or "CONFIDENTIAL"
                 ))
             QMessageBox.information(self, "Success", "School Profile Configuration Saved.")
-        except Exception:
-            QMessageBox.critical(self, "Error", "An unexpected error occurred while saving the school profile.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"An unexpected error occurred while saving the school profile: {e}")
 
     def reset_form(self):
         self.school_name.clear()

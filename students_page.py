@@ -22,6 +22,7 @@ from system_state import SystemState
 import openpyxl
 import excel_utils
 from student_profile import StudentProfile
+from security_settings import authorize_action
 
 
 class StudentsPage(QWidget):
@@ -222,11 +223,11 @@ class StudentsPage(QWidget):
                 "Duplicate Admission Number",
                 "That admission number is already registered.",
             )
-        except Exception:
+        except Exception as e:
             QMessageBox.critical(
                 self,
                 "Database Error",
-                "An unexpected error occurred while saving the student record.",
+                f"An unexpected error occurred while saving the student record: {e}",
             )
             return
 
@@ -288,14 +289,17 @@ class StudentsPage(QWidget):
         if answer != QMessageBox.StandardButton.Yes:
             return
 
+        if not authorize_action(self, "Delete Student"):
+            return
+
         try:
             with get_cursor(commit=True) as cur:
                 cur.execute("DELETE FROM students WHERE id=?", (self.selected_id,))
-        except Exception:
+        except Exception as e:
             QMessageBox.critical(
                 self,
                 "Database Error",
-                "An unexpected error occurred while deleting the student record.",
+                f"An unexpected error occurred while deleting the student record: {e}",
             )
             return
 
@@ -420,5 +424,5 @@ class StudentsPage(QWidget):
                                   f"- Existing Records Updated: {updated}\n"
                                   f"- Records Rejected (Invalid Data): {rejected}")
             
-        except Exception:
-            QMessageBox.critical(self, "Error", "Import failed. Please check the file format and try again.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Import failed: {e}")
