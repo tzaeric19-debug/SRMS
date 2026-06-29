@@ -175,7 +175,7 @@ class ResultsDashboard(QWidget):
         self.load_dashboard()
 
     def load_exams(self):
-        combo_loaders.load_open_exams(self.exam)
+        combo_loaders.load_results_exams(self.exam)
 
     def load_classes(self):
         combo_loaders.load_classes(self.class_box)

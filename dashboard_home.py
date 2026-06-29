@@ -26,19 +26,19 @@ class GlassCard(QFrame):
         super().__init__()
 
         self.setObjectName("GlassCard")
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.setMinimumHeight(145)
-        self.setMaximumHeight(165)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.setMinimumHeight(104)
+        self.setMaximumHeight(112)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(18, 18, 18, 18)
+        layout.setContentsMargins(14, 12, 14, 12)
         layout.setSpacing(0)
 
         # Value Label - Large and prominent
         self.value_lbl = QLabel(str(value))
         self.value_lbl.setAlignment(Qt.AlignCenter)
         value_font = QFont()
-        value_font.setPointSize(56)
+        value_font.setPointSize(18)
         value_font.setWeight(QFont.Weight.Black)
         self.value_lbl.setFont(value_font)
         self.value_lbl.setStyleSheet("""
@@ -52,7 +52,7 @@ class GlassCard(QFrame):
         self.title_lbl.setAlignment(Qt.AlignCenter)
         self.title_lbl.setWordWrap(True)
         title_font = QFont()
-        title_font.setPointSize(11)
+        title_font.setPointSize(10)
         self.title_lbl.setFont(title_font)
         self.title_lbl.setStyleSheet("""
             color: #94a3b8;
@@ -62,7 +62,7 @@ class GlassCard(QFrame):
 
         layout.addStretch(1)
         layout.addWidget(self.value_lbl, alignment=Qt.AlignCenter)
-        layout.addSpacing(4)
+        layout.addSpacing(2)
         layout.addWidget(self.title_lbl, alignment=Qt.AlignCenter)
         layout.addStretch(1)
 
@@ -94,14 +94,14 @@ class GlassButton(QPushButton):
             self.setIcon(QIcon(icon_path))
 
         self.setCursor(Qt.PointingHandCursor)
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.setMinimumHeight(95)
-        self.setMaximumHeight(115)
-        self.setIconSize(QSize(38, 38))
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.setMinimumHeight(58)
+        self.setMaximumHeight(64)
+        self.setIconSize(QSize(28, 28))
         
         # Set font
         font = QFont()
-        font.setPointSize(15)
+        font.setPointSize(11)
         font.setWeight(QFont.Weight.DemiBold)
         self.setFont(font)
         
@@ -109,9 +109,9 @@ class GlassButton(QPushButton):
             QPushButton {
                 background: rgba(51, 65, 85, 0.4);
                 border: 1px solid rgba(100, 116, 139, 0.35);
-                border-radius: 16px;
+                border-radius: 13px;
                 color: #f1f5f9;
-                padding: 10px 6px;
+                padding: 7px 6px;
                 font-weight: 600;
             }
             QPushButton:hover {
@@ -163,8 +163,8 @@ class DashboardHome(QWidget):
 
         # Main layout with reduced margins for better space usage
         root = QVBoxLayout(self)
-        root.setContentsMargins(16, 16, 16, 16)
-        root.setSpacing(14)
+        root.setContentsMargins(16, 14, 16, 14)
+        root.setSpacing(10)
 
         # ====== HEADER SECTION ======
         header = self._build_header()
@@ -172,7 +172,7 @@ class DashboardHome(QWidget):
 
         # ====== MAIN CONTENT AREA ======
         content_layout = QHBoxLayout()
-        content_layout.setSpacing(14)
+        content_layout.setSpacing(12)
         content_layout.setContentsMargins(0, 0, 0, 0)
 
         # Left: KPI Cards
@@ -184,15 +184,15 @@ class DashboardHome(QWidget):
         content_layout.addWidget(right_panel, 2)
 
         root.addLayout(content_layout, 0)
-        root.addStretch()
+        root.addStretch(1)
 
     def _build_header(self):
         """Build the compact, modern header section."""
         header = QFrame()
         header.setObjectName("HeaderFrame")
         header.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        header.setMinimumHeight(85)
-        header.setMaximumHeight(85)
+        header.setMinimumHeight(76)
+        header.setMaximumHeight(76)
 
         header.setStyleSheet("""
             QFrame#HeaderFrame {
@@ -207,14 +207,14 @@ class DashboardHome(QWidget):
         """)
 
         layout = QVBoxLayout(header)
-        layout.setContentsMargins(24, 12, 24, 12)
+        layout.setContentsMargins(22, 10, 22, 10)
         layout.setSpacing(3)
 
         # School Name
         self.school_lbl = QLabel("Loading School...")
         self.school_lbl.setAlignment(Qt.AlignCenter)
         font = QFont()
-        font.setPointSize(20)
+        font.setPointSize(17)
         font.setWeight(QFont.Weight.Bold)
         self.school_lbl.setFont(font)
         self.school_lbl.setStyleSheet("color: #f1f5f9; background: transparent;")
@@ -255,7 +255,7 @@ class DashboardHome(QWidget):
 
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(12)
+        layout.setSpacing(9)
 
         # Section Title - Bold and prominent
         title = QLabel("Key Performance Indicators")
@@ -276,12 +276,12 @@ class DashboardHome(QWidget):
             }
         """)
         grid_layout_container = QVBoxLayout(grid_container)
-        grid_layout_container.setContentsMargins(14, 14, 14, 14)
+        grid_layout_container.setContentsMargins(12, 12, 12, 12)
         grid_layout_container.setSpacing(0)
 
         # KPI Grid (3 columns x 3 rows)
         kpi_grid = QGridLayout()
-        kpi_grid.setSpacing(12)
+        kpi_grid.setSpacing(8)
         kpi_grid.setContentsMargins(0, 0, 0, 0)
 
         # Create KPI Cards
@@ -309,16 +309,14 @@ class DashboardHome(QWidget):
         ]
 
         for card, row, col in cards:
-            card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             kpi_grid.addWidget(card, row, col)
 
-        # Set equal column and row stretching
         for i in range(3):
             kpi_grid.setColumnStretch(i, 1)
-            kpi_grid.setRowStretch(i, 1)
 
         grid_layout_container.addLayout(kpi_grid)
-        layout.addWidget(grid_container, 1)
+        layout.addWidget(grid_container, 0)
 
         return container
 
@@ -329,7 +327,7 @@ class DashboardHome(QWidget):
 
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(14)
+        layout.setSpacing(12)
 
         # ====== QUICK ACTIONS ======
         quick_panel = self._build_quick_actions()
@@ -337,7 +335,8 @@ class DashboardHome(QWidget):
 
         # ====== SCHOOL INFORMATION ======
         school_panel = self._build_school_info()
-        layout.addWidget(school_panel, 1)
+        layout.addWidget(school_panel, 0)
+        layout.addStretch(1)
 
         return container
 
@@ -355,8 +354,8 @@ class DashboardHome(QWidget):
         """)
 
         layout = QVBoxLayout(panel)
-        layout.setContentsMargins(16, 14, 16, 14)
-        layout.setSpacing(9)
+        layout.setContentsMargins(16, 12, 16, 12)
+        layout.setSpacing(8)
 
         # Section Title - Bold and prominent
         title = QLabel("Quick Actions")
@@ -369,7 +368,7 @@ class DashboardHome(QWidget):
 
         # Button Grid (3 columns x 2 rows)
         button_grid = QGridLayout()
-        button_grid.setSpacing(9)
+        button_grid.setSpacing(8)
         button_grid.setContentsMargins(0, 0, 0, 0)
 
         # Create buttons
@@ -413,8 +412,9 @@ class DashboardHome(QWidget):
         """Build the school information panel."""
         panel = QFrame()
         panel.setObjectName("SchoolInfoPanel")
-        panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        panel.setMinimumHeight(140)
+        panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        panel.setMinimumHeight(205)
+        panel.setMaximumHeight(245)
         panel.setStyleSheet("""
             QFrame#SchoolInfoPanel {
                 background: rgba(30, 41, 59, 0.4);

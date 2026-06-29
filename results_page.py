@@ -21,7 +21,7 @@ import openpyxl
 import excel_utils
 
 from class_utils import get_classes
-from db_utils import get_cursor, fetch_all, get_exam_context
+from db_utils import get_cursor, fetch_all, fetch_one, get_exam_context
 from event_bus import EventBus
 from system_state import SystemState
 from ui_helpers import show_error, show_info
@@ -104,6 +104,7 @@ class ResultsPage(QWidget):
         super().__init__()
 
         self.loading_table = False
+        self.exam_read_only = False
 
         layout = QVBoxLayout(self)
         layout.setSpacing(14)
@@ -205,6 +206,16 @@ class ResultsPage(QWidget):
         self.table.verticalHeader().setDefaultSectionSize(44)
         self.table.itemChanged.connect(self.update_summary)
 
+        self.lock_label = QLabel("")
+        self.lock_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lock_label.setStyleSheet(
+            "font-size: 13px; font-weight: bold; color: #facc15;"
+            "background: rgba(250, 204, 21, 0.10);"
+            "border: 1px solid rgba(250, 204, 21, 0.30);"
+            "border-radius: 8px; padding: 8px;"
+        )
+        self.lock_label.hide()
+
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(
             0,
@@ -220,6 +231,7 @@ class ResultsPage(QWidget):
         )
         self.table.setColumnWidth(2, 160)
 
+        layout.addWidget(self.lock_label)
         layout.addWidget(self.table, 1)
 
         # =====================================
@@ -308,7 +320,7 @@ class ResultsPage(QWidget):
         self.load_subjects()
 
     def load_exams(self):
-        combo_loaders.load_open_exams(self.exam)
+        combo_loaders.load_results_exams(self.exam)
 
     def load_classes(self):
         combo_loaders.load_classes(self.class_box)
@@ -384,6 +396,8 @@ class ResultsPage(QWidget):
             self._clear_table()
             return
 
+        self._update_exam_lock_state()
+
         context = get_exam_context(exam_id)
         if not context:
             self._clear_table()
@@ -417,6 +431,9 @@ class ResultsPage(QWidget):
             Qt.ItemFlag.ItemIsEnabled
             | Qt.ItemFlag.ItemIsSelectable
         )
+        marks_flags = read_only_flags
+        if not self.exam_read_only:
+            marks_flags |= Qt.ItemFlag.ItemIsEditable
 
         for row_index, (admission_no, full_name, marks) in enumerate(rows):
             admission_item = QTableWidgetItem(admission_no)
@@ -429,11 +446,15 @@ class ResultsPage(QWidget):
                 "" if marks is None else str(marks)
             )
             marks_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            marks_item.setFlags(marks_flags)
 
             self.table.setItem(row_index, 0, admission_item)
             self.table.setItem(row_index, 1, name_item)
             self.table.setItem(row_index, 2, marks_item)
-            self.table.openPersistentEditor(marks_item)
+            if self.exam_read_only:
+                self.table.closePersistentEditor(marks_item)
+            else:
+                self.table.openPersistentEditor(marks_item)
 
         self.loading_table = False
         self.update_summary()
@@ -444,6 +465,14 @@ class ResultsPage(QWidget):
 
         if exam_id is None or not subject_name:
             show_error(self, "Select an exam, class and subject.", title="Missing Filters")
+            return
+
+        if self._is_selected_exam_completed():
+            show_error(
+                self,
+                "This exam is completed and read-only. Reopen it from Exams if edits are required.",
+                title="Completed Exam"
+            )
             return
 
         marks_to_save = []
@@ -530,6 +559,14 @@ class ResultsPage(QWidget):
         if not (exam_id and subject_name):
             show_error(self, "Select Exam and Subject first")
             return
+
+        if self._is_selected_exam_completed():
+            show_error(
+                self,
+                "This exam is completed and read-only. Reopen it from Exams before importing marks.",
+                title="Completed Exam"
+            )
+            return
             
         path = excel_utils.get_import_file(self)
         if not path: return
@@ -576,7 +613,39 @@ class ResultsPage(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Import failed: {e}")
 
+
+    def _is_selected_exam_completed(self):
+        exam_id = self.exam.currentData()
+        if exam_id is None:
+            return False
+
+        row = fetch_one(
+            "SELECT status FROM exams WHERE id=?",
+            (exam_id,),
+        )
+        return bool(row and row[0] == "COMPLETED")
+
+    def _update_exam_lock_state(self):
+        self.exam_read_only = self._is_selected_exam_completed()
+        self.save_btn.setEnabled(not self.exam_read_only)
+        self.import_btn.setEnabled(not self.exam_read_only)
+
+        if self.exam_read_only:
+            self.lock_label.setText(
+                "COMPLETED EXAM - read-only results. Reopen from Exams to edit."
+            )
+            self.lock_label.show()
+            self.table.setEditTriggers(
+                QAbstractItemView.EditTrigger.NoEditTriggers
+            )
+        else:
+            self.lock_label.hide()
+            self.table.setEditTriggers(
+                QAbstractItemView.EditTrigger.AllEditTriggers
+            )
+
     def _clear_table(self):
+        self._update_exam_lock_state()
         self.loading_table = True
         self.table.setRowCount(0)
         self.loading_table = False

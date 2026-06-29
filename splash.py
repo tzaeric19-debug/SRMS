@@ -21,7 +21,7 @@ class SplashScreen(QWidget):
         self.on_finish = on_finish
 
         self.setWindowTitle("SRMS V5")
-        self.showMaximized()
+        self._apply_main_window_geometry()
 
         self.setStyleSheet("""
         QWidget{
@@ -75,7 +75,8 @@ class SplashScreen(QWidget):
 
         card = QFrame()
         card.setObjectName("centerCard")
-        card.setFixedWidth(900)
+        card.setMaximumWidth(900)
+        card.setMinimumWidth(620)
 
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(60, 50, 60, 50)
@@ -251,6 +252,20 @@ class SplashScreen(QWidget):
 
         # ~5 seconds
         self.timer.start(50)
+
+
+    def _apply_main_window_geometry(self):
+        """Match the main window's startup size and centered position."""
+        available = self.screen().availableGeometry()
+        self.resize(
+            int(available.width() * 0.95),
+            int(available.height() * 0.95)
+        )
+        self.setMinimumSize(1100, 650)
+
+        qr = self.frameGeometry()
+        qr.moveCenter(available.center())
+        self.move(qr.topLeft())
 
     def update_loading(self):
 

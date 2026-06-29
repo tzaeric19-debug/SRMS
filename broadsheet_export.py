@@ -2,7 +2,7 @@ import os
 import openpyxl
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.drawing.image import Image as ExcelImage
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import QFileDialog, QMessageBox, QProgressDialog, QApplication
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import landscape, A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
@@ -12,38 +12,98 @@ from reportlab.platypus.flowables import Image # For PDF logo
 from reportlab.lib.units import inch
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from PySide6.QtCore import Qt
+
+
+def _make_progress(parent, title):
+    if QApplication.instance() is None:
+        return None
+
+    progress = QProgressDialog(title, None, 0, 100, parent)
+    progress.setWindowTitle(title)
+    progress.setWindowModality(Qt.WindowModal if parent else Qt.NonModal)
+    progress.setAutoClose(False)
+    progress.setAutoReset(False)
+    progress.setMinimumDuration(0)
+    progress.setValue(0)
+    QApplication.processEvents()
+    return progress
+
+
+def _set_progress(progress, value, label):
+    if progress is None:
+        return
+    progress.setLabelText(f"{label} {value}%")
+    progress.setValue(value)
+    QApplication.processEvents()
+
+
+
+
+def _report_palette():
+    return {
+        "accent": "2563EB",
+        "accent_dark": "1B3A5C",
+        "light": "E8EDF2",
+        "text": "111827",
+    }
+
+
+def _hex_color(value):
+    return colors.HexColor(f"#{value}")
+
+
+def _pick(mapping, *keys, default="-"):
+    for key in keys:
+        if isinstance(mapping, dict) and key in mapping:
+            return mapping[key]
+    return default
+
 
 def to_excel(parent, data):
     path, _ = QFileDialog.getSaveFileName(parent, "Export Broadsheet", f"Broadsheet_{data['meta']['class']}.xlsx", "Excel Files (*.xlsx)")
     if not path: return
 
+    progress = None
+
     try:
+        progress = _make_progress(parent, "Exporting Excel broadsheet...")
         wb = openpyxl.Workbook()
+        _set_progress(progress, 5, "Preparing workbook")
         ws = wb.active
         ws.title = "Broadsheet"
 
-        # Meta Info & School Profile
+        # Report-card style header
         meta = data['meta']
         school_profile = meta['school_profile']
-        
-        ws.append([school_profile.get('school_name', 'SCHOOL MANAGEMENT SYSTEM').upper()])
-        ws.merge_cells(start_row=ws.max_row, start_column=1, end_row=ws.max_row, end_column=len(data['subjects']) + 8)
-        ws.cell(row=ws.max_row, column=1).font = Font(size=16, bold=True)
-        ws.cell(row=ws.max_row, column=1).alignment = Alignment(horizontal="center")
-        
-        ws.append([f"{school_profile.get('school_address', '-')} | {school_profile.get('school_phone', '-')} | {school_profile.get('school_email', '-')}" if school_profile else ""])
-        ws.merge_cells(start_row=ws.max_row, start_column=1, end_row=ws.max_row, end_column=len(data['subjects']) + 8)
-        ws.cell(row=ws.max_row, column=1).alignment = Alignment(horizontal="center")
-        
-        ws.append([f"BROADSHEET FOR {meta['class']} ({meta['level']})"])
-        ws.merge_cells(start_row=ws.max_row, start_column=1, end_row=ws.max_row, end_column=len(data['subjects']) + 8)
-        ws.cell(row=ws.max_row, column=1).font = Font(size=14, bold=True, color="2563EB")
-        ws.cell(row=ws.max_row, column=1).alignment = Alignment(horizontal="center")
+        palette = _report_palette()
+        last_col = len(data['subjects']) + 8
+        school_name = school_profile.get('school_name', 'SCHOOL MANAGEMENT SYSTEM').upper()
+        motto = school_profile.get('school_motto') or school_profile.get('motto') or ''
+        address = school_profile.get('school_address') or school_profile.get('school_address', '-') or '-'
+        phone = school_profile.get('school_phone') or school_profile.get('phone') or '-'
+        email = school_profile.get('school_email') or school_profile.get('email') or '-'
 
-        ws.append([f"Academic Year: {meta['year']} | Term: {meta['term']} | Exam: {meta['exam']} | Level: {meta['level']}"])
-        ws.merge_cells(start_row=ws.max_row, start_column=1, end_row=ws.max_row, end_column=len(data['subjects']) + 8)
-        ws.cell(row=ws.max_row, column=1).font = Font(size=14, bold=True, color="2563EB")
-        ws.cell(row=ws.max_row, column=1).alignment = Alignment(horizontal="center")
+        header_rows = [
+            (school_name, 18, palette['accent_dark'], "FFFFFF"),
+            (motto, 11, palette['accent_dark'], "FFFFFF"),
+            (f"{address} | Tel: {phone} | Email: {email}", 10, palette['light'], palette['text']),
+            ("CLASS BROADSHEET / REPORT SUMMARY", 14, palette['accent'], "FFFFFF"),
+            (f"Class: {meta['class']}   Level: {meta['level']}   Exam: {meta['exam']}   Term: {meta['term']}   Year: {meta['year']}", 11, palette['light'], palette['text']),
+        ]
+
+        for text, size, fill, font_color in header_rows:
+            ws.append([text])
+            row_no = ws.max_row
+            ws.merge_cells(start_row=row_no, start_column=1, end_row=row_no, end_column=last_col)
+            cell = ws.cell(row=row_no, column=1)
+            cell.font = Font(size=size, bold=True, color=font_color)
+            cell.fill = PatternFill(start_color=fill, end_color=fill, fill_type="solid")
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            ws.row_dimensions[row_no].height = 24 if size >= 14 else 19
+
+        ws.append([])
 
         # Main Broadsheet Table Header
         subjects = data['subjects']
@@ -53,16 +113,21 @@ def to_excel(parent, data):
         header_row = ws.max_row
         for cell in ws[header_row]:
             cell.font = Font(bold=True, color="FFFFFF")
-            cell.fill = PatternFill(start_color="1E3A8A", end_color="1E3A8A", fill_type="solid")
+            cell.fill = PatternFill(start_color=palette["accent_dark"], end_color=palette["accent_dark"], fill_type="solid")
             cell.alignment = Alignment(horizontal="center")
 
         # Data
-        for r in data['rows']:
+        total_data_rows = max(len(data['rows']), 1)
+        for row_index, r in enumerate(data['rows'], start=1):
             row_vals = [r['Position'], r['Admission No'], r['Student Name'], r['Gender']]
             for s in subjects:
                 row_vals.append(r['marks'][s])
             row_vals += [r['Total'], r['Average'], r['Points'], r['Division']]
             ws.append(row_vals)
+            if row_index == 1 or row_index == total_data_rows or row_index % 25 == 0:
+                _set_progress(progress, min(55, 10 + int((row_index / total_data_rows) * 45)), "Writing student rows")
+
+        _set_progress(progress, 60, "Styling workbook")
 
         # Add a border to the main table
         thin_border = Border(left=Side(style='thin'), 
@@ -153,22 +218,31 @@ def to_excel(parent, data):
         # Freeze Panes
         ws.freeze_panes = f"E{header_row + 1}"
 
+        _set_progress(progress, 90, "Saving Excel file")
         wb.save(path)
+        _set_progress(progress, 100, "Export complete")
         QMessageBox.information(parent, "Success", f"Broadsheet exported to {path}")
     except Exception as e:
         print(f"[ERROR] Broadsheet export failed: {e}")
         QMessageBox.critical(parent, "Export Error", "An unexpected error occurred during export.")
+    finally:
+        if progress is not None:
+            progress.close()
 
 
 def to_pdf(parent, data):
     path, _ = QFileDialog.getSaveFileName(parent, "Export Broadsheet PDF", f"Broadsheet_{data['meta']['class']}.pdf", "PDF Files (*.pdf)")
     if not path: return
 
+    progress = None
+
     try:
+        progress = _make_progress(parent, "Exporting PDF broadsheet...")
         doc = SimpleDocTemplate(path, pagesize=landscape(A4), 
                                 rightMargin=0.5*inch, leftMargin=0.5*inch, 
-                                topMargin=0.5*inch, bottomMargin=0.5*inch)
+                                topMargin=0.75*inch, bottomMargin=0.5*inch)
         
+        _set_progress(progress, 8, "Preparing PDF document")
         styles = getSampleStyleSheet()
         
         # Custom styles for header/footer
@@ -177,53 +251,110 @@ def to_pdf(parent, data):
         styles.add(ParagraphStyle(name='TitleStyle', alignment=1, fontSize=16, fontName='Helvetica-Bold', spaceAfter=0))
         styles.add(ParagraphStyle(name='SubtitleStyle', alignment=1, fontSize=10, fontName='Helvetica', spaceAfter=0))
         styles.add(ParagraphStyle(name='SectionHeader', alignment=0, fontSize=12, fontName='Helvetica-Bold', spaceBefore=12, spaceAfter=6))
+        styles.add(ParagraphStyle(name='ReportTitle', alignment=TA_CENTER, fontSize=17, fontName='Helvetica-Bold', leading=20, textColor=colors.white))
+        styles.add(ParagraphStyle(name='ReportMotto', alignment=TA_CENTER, fontSize=8, fontName='Helvetica-Oblique', leading=10, textColor=colors.white))
+        styles.add(ParagraphStyle(name='ReportSmall', alignment=TA_CENTER, fontSize=8, fontName='Helvetica', leading=10))
+        styles.add(ParagraphStyle(name='ReportSmallLeft', alignment=TA_LEFT, fontSize=8, fontName='Helvetica', leading=10, textColor=colors.white))
+        styles.add(ParagraphStyle(name='ReportSmallRight', alignment=TA_RIGHT, fontSize=8, fontName='Helvetica', leading=10, textColor=colors.white))
 
         # School Profile and Settings
         meta = data['meta']
         school_profile = meta['school_profile']
         settings = data['settings']
         generated_date = meta['generated_date']
+        palette = _report_palette()
+        accent = _hex_color(palette['accent'])
+        accent_dark = _hex_color(palette['accent_dark'])
+        light = _hex_color(palette['light'])
 
         # Define Header and Footer for all pages
         def _header_footer(canvas, doc):
             canvas.saveState()
-            # Header
-            header_frame = Frame(doc.leftMargin, doc.height + doc.topMargin - 0.75*inch, doc.width, 0.75*inch,
-                                 leftPadding=0, bottomPadding=0, rightPadding=0, topPadding=0, showBoundary=0)
-            header_elements = []
-            
+            header_frame = Frame(
+                doc.leftMargin,
+                doc.height + doc.topMargin - 1.05 * inch,
+                doc.width,
+                1.05 * inch,
+                leftPadding=0,
+                bottomPadding=0,
+                rightPadding=0,
+                topPadding=0,
+                showBoundary=0,
+            )
+
+            school_name = school_profile.get(
+                'school_name', 'SCHOOL MANAGEMENT SYSTEM'
+            ).upper()
+            motto = school_profile.get('school_motto') or school_profile.get('motto') or ''
+            address = school_profile.get('school_address') or '-'
+            phone = school_profile.get('school_phone') or '-'
+            email = school_profile.get('school_email') or '-'
+
+            center_parts = []
             if settings['show_logo'] and school_profile.get('school_logo') and os.path.exists(school_profile['school_logo']):
                 try:
-                    logo = Image(school_profile['school_logo'])
-                    logo.drawHeight = 0.6 * inch
-                    logo.drawWidth = 0.6 * inch * (logo.drawWidth / logo.drawHeight) # Maintain aspect ratio
-                    logo.hAlign = 'CENTER'
-                    # Create a table for logo and text to align them
-                    header_table_data = [[logo, Paragraph(school_profile.get('school_name', 'SCHOOL MANAGEMENT SYSTEM').upper(), styles['TitleStyle'])]]
-                    header_table = Table(header_table_data, colWidths=[0.7*inch, doc.width - 0.7*inch])
-                    header_table.setStyle(TableStyle([
-                        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                        ('ALIGN', (0,0), (0,0), 'LEFT'),
-                        ('ALIGN', (1,0), (1,0), 'CENTER'),
-                        ('LEFTPADDING', (0,0), (-1,-1), 0),
-                        ('RIGHTPADDING', (0,0), (-1,-1), 0),
-                    ]))
-                    header_elements.append(header_table)
+                    logo = Image(school_profile['school_logo'], width=0.55 * inch, height=0.55 * inch)
+                    center_parts.append([logo])
                 except Exception as e:
                     print(f"[WARNING] Could not load PDF logo '{school_profile['school_logo']}': {e}")
-                    header_elements.append(Paragraph(school_profile.get('school_name', 'SCHOOL MANAGEMENT SYSTEM').upper(), styles['TitleStyle']))
-            else:
-                header_elements.append(Paragraph(school_profile.get('school_name', 'SCHOOL MANAGEMENT SYSTEM').upper(), styles['TitleStyle']))
-            header_elements.append(Paragraph(f"{school_profile.get('school_address', '-')} | {school_profile.get('school_phone', '-')} | {school_profile.get('school_email', '-')}", styles['SubtitleStyle']))
-            header_elements.append(Paragraph(f"BROADSHEET: {meta['class']} ({meta['level']}) - {meta['exam']} ({meta['term']} {meta['year']})", styles['SubtitleStyle']))
-            header_elements.append(HRFlowable(width="100%", thickness=1, color=colors.black, spaceBefore=0.05*inch, spaceAfter=0.05*inch))
-            
-            header_frame.addFromList(header_elements, canvas)
 
-            # Footer
+            center_parts.append([Paragraph(school_name, styles['ReportTitle'])])
+            if motto:
+                center_parts.append([Paragraph(motto, styles['ReportMotto'])])
+
+            center_table = Table(center_parts, colWidths=[doc.width * 0.42])
+            center_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 0),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+            ]))
+
+            left = Table([
+                [Paragraph('<b>CONTACT</b>', styles['ReportSmallLeft'])],
+                [Paragraph(address, styles['ReportSmallLeft'])],
+                [Paragraph(f'Tel: {phone}', styles['ReportSmallLeft'])],
+                [Paragraph(f'Email: {email}', styles['ReportSmallLeft'])],
+            ], colWidths=[doc.width * 0.29])
+
+            right = Table([
+                [Paragraph('<b>ACADEMIC REPORT</b>', styles['ReportSmallRight'])],
+                [Paragraph(f"Class: {meta['class']} ({meta['level']})", styles['ReportSmallRight'])],
+                [Paragraph(f"Exam: {meta['exam']}", styles['ReportSmallRight'])],
+                [Paragraph(f"{meta['term']} - {meta['year']}", styles['ReportSmallRight'])],
+            ], colWidths=[doc.width * 0.29])
+
+            for panel in (left, right):
+                panel.setStyle(TableStyle([
+                    ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 4),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+                    ('TOPPADDING', (0, 0), (-1, -1), 1),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+                ]))
+
+            header = Table(
+                [[left, center_table, right]],
+                colWidths=[doc.width * 0.29, doc.width * 0.42, doc.width * 0.29],
+            )
+            header.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), accent_dark),
+                ('BOX', (0, 0), (-1, -1), 1.2, accent),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ]))
+
+            header_frame.addFromList([header], canvas)
+
             canvas.setFont('Helvetica', 7)
-            canvas.drawString(doc.leftMargin, 0.3*inch, f"Generated: {generated_date}")
-            canvas.drawString(doc.width + doc.leftMargin - 0.5*inch, 0.3*inch, f"Page {doc.page}")
+            canvas.setFillColor(colors.HexColor('#64748B'))
+            canvas.drawString(doc.leftMargin, 0.3 * inch, f"Generated: {generated_date}")
+            canvas.drawString(doc.width + doc.leftMargin - 0.5 * inch, 0.3 * inch, f"Page {doc.page}")
             canvas.restoreState()
 
         # Watermark
@@ -238,7 +369,7 @@ def to_pdf(parent, data):
                 canvas.restoreState()
 
         # Main content frame
-        frame = Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height - 1.0*inch, # Adjusted for header
+        frame = Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height - 0.95*inch, # Adjusted for report-card header
                       leftPadding=0, bottomPadding=0, rightPadding=0, topPadding=0,
                       showBoundary=0)
         main_template = PageTemplate(id='main_page', frames=[frame], onPage=_header_footer)
@@ -246,6 +377,8 @@ def to_pdf(parent, data):
 
         elements = [] # Initialize elements list for content
         # Build actual content (watermark will be applied during build)
+        _set_progress(progress, 20, "Building broadsheet table")
+
         # Main Broadsheet Table
         subjects = data['subjects']
         headers = ["Pos", "Adm No", "Name", "Sex"] + subjects + ["Tot", "Avg", "Pts", "Div"]
@@ -272,7 +405,7 @@ def to_pdf(parent, data):
         
         t = Table(table_data, colWidths=col_widths, repeatRows=1)
         t.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('BACKGROUND', (0, 0), (-1, 0), accent_dark),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
@@ -288,6 +421,7 @@ def to_pdf(parent, data):
 
         elements.append(t)
         elements.append(PageBreak()) # Start analytics on a new page
+        _set_progress(progress, 45, "Building analysis sections")
 
         # 1. Class Performance Analysis
         class_perf = data['class_performance']
@@ -338,7 +472,7 @@ def to_pdf(parent, data):
             div_data.append([div, count])
         div_table = Table(div_data, colWidths=[2*inch, 1.5*inch])
         div_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('BACKGROUND', (0, 0), (-1, 0), light),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
@@ -353,10 +487,10 @@ def to_pdf(parent, data):
         elements.append(Paragraph("TOP 10 STUDENTS", styles['SectionHeader']))
         top_data = [["Position", "Admission No", "Student Name", "Average", "Division"]]
         for s in top_students:
-            top_data.append([s['position'], s['admission'], s['name'], s['average'], s['division']])
+            top_data.append([_pick(s, 'position', 'Position'), _pick(s, 'admission', 'Admission No'), _pick(s, 'name', 'Student Name'), _pick(s, 'average', 'Average'), _pick(s, 'division', 'Division')])
         top_table = Table(top_data, colWidths=[0.8*inch, 1.2*inch, 2.5*inch, 1*inch, 1*inch])
         top_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('BACKGROUND', (0, 0), (-1, 0), light),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
@@ -371,10 +505,10 @@ def to_pdf(parent, data):
         elements.append(Paragraph("BOTTOM 10 STUDENTS", styles['SectionHeader']))
         bottom_data = [["Position", "Admission No", "Student Name", "Average", "Division"]]
         for s in bottom_students:
-            bottom_data.append([s['position'], s['admission'], s['name'], s['average'], s['division']])
+            bottom_data.append([_pick(s, 'position', 'Position'), _pick(s, 'admission', 'Admission No'), _pick(s, 'name', 'Student Name'), _pick(s, 'average', 'Average'), _pick(s, 'division', 'Division')])
         bottom_table = Table(bottom_data, colWidths=[0.8*inch, 1.2*inch, 2.5*inch, 1*inch, 1*inch])
         bottom_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('BACKGROUND', (0, 0), (-1, 0), light),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
@@ -392,7 +526,7 @@ def to_pdf(parent, data):
             sub_perf_data.append([sub_name, stats['average'], stats['passes'], stats['fails']])
         sub_perf_table = Table(sub_perf_data, colWidths=[2.5*inch, 1*inch, 1*inch, 1*inch])
         sub_perf_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('BACKGROUND', (0, 0), (-1, 0), light),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
@@ -430,8 +564,13 @@ def to_pdf(parent, data):
         elements.append(Paragraph("School Stamp:", styles['Normal']))
 
         # Build PDF and apply watermark callbacks (header/footer applied via PageTemplate)
+        _set_progress(progress, 80, "Rendering PDF pages")
         doc.build(elements, onFirstPage=draw_watermark, onLaterPages=draw_watermark)
+        _set_progress(progress, 100, "Export complete")
         QMessageBox.information(parent, "Success", f"Broadsheet exported to {path}")
     except Exception as e:
         print(f"[ERROR] Broadsheet export failed: {e}")
         QMessageBox.critical(parent, "Export Error", "An unexpected error occurred during export.")
+    finally:
+        if progress is not None:
+            progress.close()

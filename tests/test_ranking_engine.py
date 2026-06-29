@@ -162,11 +162,11 @@ class TestComputeStudentScoresOLevel:
         bob = next(r for r in ranking if r["admission"] == "ADM002")
         assert alice["position"] < bob["position"]
 
-    def test_ready_students_sorted_by_points_ascending(self, db_with_results):
+    def test_ready_students_sorted_by_total_marks_descending(self, db_with_results):
         ranking = compute_student_scores("O_LEVEL", exam_id=db_with_results["exam_id"])
         ready = [r for r in ranking if r["status"] == "READY"]
-        points = [r["points"] for r in ready]
-        assert points == sorted(points)
+        totals = [r["total_marks"] for r in ready]
+        assert totals == sorted(totals, reverse=True)
 
     def test_ready_students_come_before_incomplete(self, db_with_results):
         ranking = compute_student_scores("O_LEVEL", exam_id=db_with_results["exam_id"])
@@ -179,7 +179,7 @@ class TestComputeStudentScoresOLevel:
 
     def test_student_has_required_fields(self, db_with_results):
         ranking = compute_student_scores("O_LEVEL", exam_id=db_with_results["exam_id"])
-        required_fields = ["position", "admission", "name", "gender", "class", "subjects", "points", "average", "division", "status"]
+        required_fields = ["position", "admission", "name", "gender", "class", "subjects", "total_marks", "points", "average", "division", "status"]
         for student in ranking:
             for field in required_fields:
                 assert field in student

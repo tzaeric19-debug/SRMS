@@ -104,6 +104,35 @@ def load_open_exams(combo, level=None):
     combo.blockSignals(False)
 
 
+def load_results_exams(combo, level=None):
+    """Populate exams usable in Results Entry.
+
+    OPEN exams are editable. COMPLETED exams are visible for read-only review.
+    CLOSED exams remain hidden because they are inactive drafts/history slots.
+    """
+    current = combo.currentData()
+    if level is None:
+        level = SystemState.get_level()
+    combo.blockSignals(True)
+    combo.clear()
+    for exam_id, exam_name, status in fetch_all(
+        """
+        SELECT id, exam_name, status
+        FROM exams
+        WHERE level=?
+          AND status IN ('OPEN', 'COMPLETED')
+        ORDER BY
+            CASE status WHEN 'OPEN' THEN 0 ELSE 1 END,
+            id DESC
+        """,
+        (level,),
+    ):
+        label = exam_name if status == "OPEN" else f"{exam_name} [COMPLETED]"
+        combo.addItem(label, exam_id)
+    _restore_by_data(combo, current)
+    combo.blockSignals(False)
+
+
 def load_all_exams(combo, level=None):
     """Populate an exam combo box with ALL exams (any status) for *level*."""
     current = combo.currentData()

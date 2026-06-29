@@ -48,11 +48,27 @@ class ExamsWindow(QWidget):
         )
 
         self.status_btn = QPushButton(
-            "TOGGLE STATUS"
+            "OPEN / CLOSE"
         )
 
         self.status_btn.clicked.connect(
             self.toggle_status
+        )
+
+        self.complete_btn = QPushButton(
+            "COMPLETE EXAM"
+        )
+
+        self.complete_btn.clicked.connect(
+            self.complete_exam
+        )
+
+        self.reopen_btn = QPushButton(
+            "REOPEN COMPLETED"
+        )
+
+        self.reopen_btn.clicked.connect(
+            self.reopen_completed_exam
         )
 
         self.refresh_btn = QPushButton(
@@ -66,6 +82,8 @@ class ExamsWindow(QWidget):
         top.addWidget(self.add_btn)
         top.addWidget(self.delete_btn)
         top.addWidget(self.status_btn)
+        top.addWidget(self.complete_btn)
+        top.addWidget(self.reopen_btn)
         top.addWidget(self.refresh_btn)
 
         self.table = QTableWidget()
@@ -148,6 +166,13 @@ class ExamsWindow(QWidget):
         status = self.table.item(row, 5).text()
         level = self.table.item(row, 4).text()
 
+        if status == "COMPLETED":
+            show_error(
+                self,
+                "Completed exams are read-only. Use REOPEN COMPLETED if edits are required."
+            )
+            return
+
         new_status = "CLOSED" if status == "OPEN" else "OPEN"
 
         with get_cursor(commit=True) as cur:
@@ -162,3 +187,74 @@ class ExamsWindow(QWidget):
             """, (new_status, exam_id))
 
         EventBus.emit("EXAMS_UPDATED")
+
+    def complete_exam(self):
+
+        row = self.table.currentRow()
+
+        if row < 0:
+            show_error(self, "Select exam first")
+            return
+
+        exam_id = self.table.item(row, 0).text()
+        status = self.table.item(row, 5).text()
+
+        if status == "COMPLETED":
+            show_error(self, "This exam is already completed.")
+            return
+
+        if not confirm_action(
+            self,
+            "Complete Exam",
+            "Save this exam as COMPLETED? Results will become read-only."
+        ):
+            return
+
+        if not authorize_action(self, "Complete Exam"):
+            return
+
+        with get_cursor(commit=True) as cur:
+            cur.execute("""
+                UPDATE exams SET status='COMPLETED' WHERE id=?
+            """, (exam_id,))
+
+        EventBus.emit("EXAMS_UPDATED")
+        EventBus.emit("RESULTS_UPDATED")
+
+    def reopen_completed_exam(self):
+
+        row = self.table.currentRow()
+
+        if row < 0:
+            show_error(self, "Select exam first")
+            return
+
+        exam_id = self.table.item(row, 0).text()
+        status = self.table.item(row, 5).text()
+        level = self.table.item(row, 4).text()
+
+        if status != "COMPLETED":
+            show_error(self, "Only completed exams can be reopened.")
+            return
+
+        if not confirm_action(
+            self,
+            "Reopen Completed Exam",
+            "Reopen this exam for editing? Other open exams for this level will be closed."
+        ):
+            return
+
+        if not authorize_action(self, "Reopen Completed Exam"):
+            return
+
+        with get_cursor(commit=True) as cur:
+            cur.execute("""
+                UPDATE exams SET status='CLOSED'
+                WHERE level=? AND id<>? AND status='OPEN'
+            """, (level, exam_id))
+            cur.execute("""
+                UPDATE exams SET status='OPEN' WHERE id=?
+            """, (exam_id,))
+
+        EventBus.emit("EXAMS_UPDATED")
+        EventBus.emit("RESULTS_UPDATED")

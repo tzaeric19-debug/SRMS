@@ -3,11 +3,11 @@ import re
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit,
-    QPushButton, QMessageBox, QLabel, QGroupBox, QCheckBox, QComboBox, QScrollArea
+    QPushButton, QMessageBox, QLabel, QGroupBox, QCheckBox, QComboBox, QScrollArea, QSizePolicy
 )
 from db_utils import fetch_all, execute, execute_many
 from security_settings import authorize_action
-from event_bus import EventBus
+from academic_configuration_page import AcademicConfigurationPage
 
 _SAFE_BACKUP_PATH = re.compile(r'^[\w./ \\:-]+$')
 
@@ -15,15 +15,41 @@ class SettingsPage(QWidget):
     def __init__(self):
         super().__init__()
         layout = QVBoxLayout(self)
-        
+        layout.setContentsMargins(18, 14, 18, 14)
+        layout.setSpacing(12)
         title = QLabel("GLOBAL SYSTEM SETTINGS")
         title.setStyleSheet("font-size: 20px; font-weight: bold; color: #3b82f6; margin-bottom: 10px;")
-        layout.addWidget(title)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.NoFrame)
+        scroll.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Expanding
+        )
         container = QWidget()
+        container.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.MinimumExpanding
+        )
         self.container_layout = QVBoxLayout(container)
+        self.container_layout.setContentsMargins(10, 8, 10, 8)
+        self.container_layout.setSpacing(14)
+        self.container_layout.addWidget(title)
+
+        cards = QHBoxLayout()
+        cards.setContentsMargins(0, 0, 0, 0)
+        cards.setSpacing(16)
+
+        left_column = QVBoxLayout()
+        right_column = QVBoxLayout()
+        left_column.setSpacing(12)
+        right_column.setSpacing(12)
+
+        cards.addLayout(left_column, 1)
+        cards.addLayout(right_column, 1)
+        self.container_layout.addLayout(cards)
+        
 
         # Styling
         group_style = "QGroupBox { font-weight: bold; color: #60a5fa; border: 1px solid #334155; border-radius: 8px; margin-top: 15px; padding: 15px; }"
@@ -36,7 +62,7 @@ class SettingsPage(QWidget):
         self.a_level_principal = QLineEdit()
         acc_form.addRow("O-Level Counted Subjects:", self.o_level_counted)
         acc_form.addRow("A-Level Principal Subjects:", self.a_level_principal)
-        self.container_layout.addWidget(acc_group)
+        left_column.addWidget(acc_group)
 
         # 2. Report Settings
         rep_group = QGroupBox("REPORT SETTINGS")
@@ -49,7 +75,7 @@ class SettingsPage(QWidget):
         self.show_requirements = QCheckBox("Show Requirements Section in Report Books")
         for cb in [self.show_logo, self.show_watermark, self.show_gender_summary, self.show_subject_ranking, self.show_requirements]:
             rep_vbox.addWidget(cb)
-        self.container_layout.addWidget(rep_group)
+        right_column.addWidget(rep_group)
 
         # 3. Promotion Settings
         pro_group = QGroupBox("PROMOTION SETTINGS")
@@ -61,22 +87,28 @@ class SettingsPage(QWidget):
         pro_vbox.addWidget(self.auto_promotion)
         pro_vbox.addWidget(self.confirm_promotion)
         pro_vbox.addWidget(self.auto_backup)
-        self.container_layout.addWidget(pro_group)
+        left_column.addWidget(pro_group)
 
         # 4. System Settings
         sys_group = QGroupBox("SYSTEM SETTINGS")
         sys_group.setStyleSheet(group_style)
         sys_form = QFormLayout(sys_group)
-        self.theme = QComboBox()
-        self.theme.addItems(["Dark", "Light"])
-        self.theme.currentTextChanged.connect(self._on_theme_changed)
         self.default_level = QComboBox()
         self.default_level.addItems(["O_LEVEL", "A_LEVEL"])
         self.backup_folder = QLineEdit()
-        sys_form.addRow("System Theme:", self.theme)
         sys_form.addRow("Default Startup Level:", self.default_level)
         sys_form.addRow("Backup Folder Path:", self.backup_folder)
-        self.container_layout.addWidget(sys_group)
+        right_column.addWidget(sys_group)
+
+
+        # Academic Configuration
+        academic_group = QGroupBox("ACADEMIC CONFIGURATION")
+        academic_group.setStyleSheet(group_style)
+
+        academic_layout = QVBoxLayout(academic_group)
+        academic_layout.addWidget(AcademicConfigurationPage(), 1)
+
+        self.container_layout.addWidget(academic_group, 1)
 
         # Buttons
         btn_layout = QHBoxLayout()
@@ -93,11 +125,7 @@ class SettingsPage(QWidget):
         self.container_layout.addLayout(btn_layout)
 
         scroll.setWidget(container)
-        # ensure the container's size reflects its contents so the scroll area
-        # can provide scrollbars that reach the bottom-most widgets
-        container.adjustSize()
-        scroll.setWidgetResizable(False)
-        layout.addWidget(scroll)
+        layout.addWidget(scroll, 1)
         self.load_settings()
 
     def load_settings(self):
@@ -113,10 +141,6 @@ class SettingsPage(QWidget):
         self.auto_promotion.setChecked(settings.get('auto_promotion') == '1')
         self.confirm_promotion.setChecked(settings.get('confirm_promotion') == '1')
         self.auto_backup.setChecked(settings.get('auto_backup') == '1')
-        saved_theme = settings.get('theme', 'Dark')
-        if self.theme.findText(saved_theme) == -1:
-            saved_theme = 'Dark'
-        self.theme.setCurrentText(saved_theme)
         self.default_level.setCurrentText(settings.get('default_level', 'O_LEVEL'))
         self.backup_folder.setText(settings.get('backup_folder', './backups'))
 
@@ -153,7 +177,7 @@ class SettingsPage(QWidget):
             ('auto_promotion', '1' if self.auto_promotion.isChecked() else '0'),
             ('confirm_promotion', '1' if self.confirm_promotion.isChecked() else '0'),
             ('auto_backup', '1' if self.auto_backup.isChecked() else '0'),
-            ('theme', self.theme.currentText()),
+            ('theme', 'Current'),
             ('default_level', self.default_level.currentText()),
             ('backup_folder', self.backup_folder.text())
         ]
@@ -170,10 +194,6 @@ class SettingsPage(QWidget):
             from database import init_db
             init_db()
             self.load_settings()
-
-    def _on_theme_changed(self, theme_name):
-        """Apply theme change immediately via EventBus."""
-        EventBus.emit("THEME_CHANGED", theme_name)
 
 
 def get_setting(key, default=None):

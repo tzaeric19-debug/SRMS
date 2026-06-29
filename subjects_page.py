@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 import openpyxl
 import excel_utils
 
+from academic_rules import allowed_subject_types
 from db_utils import get_cursor, fetch_all
 from table_utils import setup_table, populate_table
 from ui_helpers import confirm_action, show_error
@@ -127,23 +128,13 @@ class SubjectsPage(QWidget):
     # SUBJECT TYPES
     # =====================
 
+    
+
     def refresh_subject_types(self):
-
         self.subject_type.clear()
-
-        if SystemState.get_level() == "A_LEVEL":
-
-            self.subject_type.addItems([
-                "PRINCIPAL",
-                "SUBSIDIARY"
-            ])
-
-        else:
-
-            self.subject_type.addItems([
-                "COUNTED",
-                "NOT_COUNTED"
-            ])
+        self.subject_type.addItems(
+        allowed_subject_types(SystemState.get_level())
+        )        
 
     # =====================
     # LOAD
