@@ -1,63 +1,35 @@
 from system_state import SystemState
+from grading_config import get_grading_system, get_points_map
 
 
 def get_grade(mark, level=None):
+    """
+    Return grade for a given mark using database configuration.
+    """
 
     if level is None:
         level = SystemState.get_level()
 
-    if level == "A_LEVEL":
+    grading = get_grading_system(level)
 
-        if mark >= 80:
-            return "A"
-        elif mark >= 70:
-            return "B"
-        elif mark >= 60:
-            return "C"
-        elif mark >= 50:
-            return "D"
-        elif mark >= 40:
-            return "E"
-        elif mark >= 35:
-            return "S"
-        else:
-            return "F"
+    for grade, (minimum, maximum) in grading.items():
+        if minimum <= mark <= maximum:
+            return grade
 
-    else:
-
-        if mark >= 80:
-            return "A"
-        elif mark >= 70:
-            return "B"
-        elif mark >= 60:
-            return "C"
-        elif mark >= 50:
-            return "D"
-        else:
-            return "F"
+    return "-"
 
 
 def get_points(grade, level=None):
+    """
+    Return points assigned to a grade using database configuration.
+    """
 
     if level is None:
         level = SystemState.get_level()
 
+    points = get_points_map(level)
+
     if level == "A_LEVEL":
+        return points.get(grade, 7)
 
-        return {
-            "A": 1,
-            "B": 2,
-            "C": 3,
-            "D": 4,
-            "E": 5,
-            "S": 6,
-            "F": 7
-        }.get(grade, 7)
-
-    return {
-        "A": 1,
-        "B": 2,
-        "C": 3,
-        "D": 4,
-        "F": 5
-    }.get(grade, 5)
+    return points.get(grade, 5)

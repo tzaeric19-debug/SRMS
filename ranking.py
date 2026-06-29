@@ -28,14 +28,15 @@ class RankingPage(QWidget):
 
         # TABLE
         self.table = QTableWidget()
-        self.table.setColumnCount(8)
+        self.table.setColumnCount(9)
         self.table.setHorizontalHeaderLabels([
             "Position",
             "Admission",
             "Full Name",
             "Subjects",
-            "Points",
+            "Total Marks",
             "Average",
+            "Points",
             "Division",
             "Status"
         ])
@@ -69,8 +70,9 @@ class RankingPage(QWidget):
                 item.get("admission", ""),
                 item.get("name", ""),
                 item.get("subjects", 0),
-                item.get("points", "-"),
+                item.get("total_marks", "-"),
                 item.get("average", "-"),
+                item.get("points", "-"),
                 item.get("division", "-"),
                 item.get("status", "UNKNOWN")
             ]
@@ -82,14 +84,14 @@ class RankingPage(QWidget):
                 table_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
                 
                 # Center align metrics
-                if col in [0, 3, 4, 5, 6, 7]:
+                if col in [0, 3, 4, 5, 6, 7, 8]:
                     table_item.setTextAlignment(Qt.AlignCenter)
 
                 # Styling based on status
                 if item.get("status") == "INCOMPLETE":
                     table_item.setForeground(Qt.gray)
                 elif item.get("status") == "READY":
-                    if col == 7: # Status column
+                    if col == 8: # Status column
                         table_item.setForeground(Qt.darkGreen)
                         font = table_item.font()
                         font.setBold(True)

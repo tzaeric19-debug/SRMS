@@ -2,7 +2,7 @@ import os
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit,
     QPushButton, QMessageBox, QLabel, QFileDialog, QGroupBox,
-    QScrollArea, QFrame
+    QScrollArea, QFrame, QSizePolicy
 )
 from PySide6.QtGui import QPixmap
 from PySide6.QtCore import Qt
@@ -31,17 +31,30 @@ class SchoolProfilePage(QWidget):
         self.dashboard_bg_path = ""
 
         layout = QVBoxLayout(self)
-        
-        # UI Header
-        title = QLabel("SCHOOL REGISTRATION & CONFIGURATION")
-        title.setStyleSheet("font-size: 20px; font-weight: bold; color: #3b82f6; margin-bottom: 10px;")
-        layout.addWidget(title)
+        layout.setContentsMargins(18, 14, 18, 14)
+        layout.setSpacing(12)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Expanding
+        )
+
         container = QWidget()
+        container.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.MinimumExpanding
+        )
         container_layout = QVBoxLayout(container)
+        container_layout.setContentsMargins(10, 8, 10, 8)
+        container_layout.setSpacing(14)
+
+        # UI Header
+        title = QLabel("SCHOOL REGISTRATION & CONFIGURATION")
+        title.setStyleSheet("font-size: 20px; font-weight: bold; color: #3b82f6; margin-bottom: 10px;")
+        container_layout.addWidget(title)
 
         # Styling for Groups
         group_style = "QGroupBox { font-weight: bold; color: #60a5fa; border: 1px solid #334155; border-radius: 8px; margin-top: 15px; padding-top: 10px; } QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px; }"
@@ -159,11 +172,7 @@ class SchoolProfilePage(QWidget):
         # don't add a stretch here; allow the container to size to its contents
 
         scroll.setWidget(container)
-        # ensure the container's size reflects its contents so the scroll area
-        # can provide scrollbars that reach the bottom-most widgets
-        container.adjustSize()
-        scroll.setWidgetResizable(False)
-        layout.addWidget(scroll)
+        layout.addWidget(scroll, 1)
 
         self.load()
 

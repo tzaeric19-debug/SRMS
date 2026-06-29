@@ -30,7 +30,7 @@ class LevelToggleSwitch(QWidget):
         super().__init__(parent)
         self._checked = False
         self._thumb_x = 4.0
-        self.setFixedSize(120, 36)
+        self.setFixedSize(98, 34)
         self.setCursor(Qt.PointingHandCursor)
         self.setFocusPolicy(Qt.StrongFocus)
         self.setToolTip(
@@ -134,8 +134,6 @@ class LevelToggleSwitch(QWidget):
 
 from event_bus import EventBus
 from system_state import SystemState
-from help_guide import HelpGuideDialog
-from settings_page import get_setting
 from theme import get_theme
 
 
@@ -165,12 +163,16 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(root)
 
         self.main_layout = QVBoxLayout(root)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setSpacing(0)
 
         # =====================================
         # TOP BAR
         # =====================================
 
         top_bar = QHBoxLayout()
+        top_bar.setContentsMargins(16, 10, 16, 10)
+        top_bar.setSpacing(10)
 
         # Level toggle - slide switch
         self.level_switch = LevelToggleSwitch()
@@ -182,50 +184,15 @@ class MainWindow(QMainWindow):
             self.toggle_level
         )
 
-        # Help button — SVG icon
-        self.help_btn = QPushButton()
-        self.help_btn.setIcon(_icon("help.svg"))
-        self.help_btn.setIconSize(QSize(22, 22))
-        self.help_btn.setToolTip("Getting Started Guide")
-        self.help_btn.setFixedSize(42, 42)
-        self.help_btn.setCursor(Qt.PointingHandCursor)
-        self.help_btn.setStyleSheet("""
-            QPushButton{
-                background:rgba(34,197,94,0.12);
-                border:1px solid rgba(34,197,94,0.35);
-                border-radius:12px;
-            }
-            QPushButton:hover{
-                background:rgba(34,197,94,0.25);
-            }
-        """)
-        self.help_btn.clicked.connect(self.show_help)
 
-        self.refresh_btn = QPushButton()
-        self.refresh_btn.setIcon(_icon("refresh.svg"))
-        self.refresh_btn.setToolTip("Refresh")
-        self.refresh_btn.setIconSize(QSize(20,20))
-        self.refresh_btn.setFixedSize(42,42)
-        self.refresh_btn.setStyleSheet("""
-            QPushButton{
-                background:rgba(255,255,255,0.08);
-                border:none;
-                border-radius:12px;
-                color:#E2E8F0;
-            }
-            QPushButton:hover{
-                background:rgba(255,255,255,0.16);
-            }
-        """)
-        self.refresh_btn.clicked.connect(
-            self.refresh_all
-        )
+        self.current_theme = "Current"
 
         # Breadcrumb label
         self.breadcrumb = QLabel("")
         self.breadcrumb.setStyleSheet("""
             font-size: 13px;
-            color: #64748b;
+            font-weight: 800;
+            color: #93C5FD;
             padding: 0 8px;
         """)
 
@@ -264,17 +231,19 @@ class MainWindow(QMainWindow):
         self.nav_button_style = """
             QPushButton{
                 text-align:center;
-                padding:8px 14px;
-                border-radius:16px;
-                font-weight:700;
-                color:#E2E8F0;
+                padding:9px 14px;
+                border-radius:15px;
+                font-weight:900;
+                color:#D7E4F5;
                 font-size:13px;
                 background:transparent;
-                border:none;
-                min-width: 120px;
+                border:1px solid transparent;
+                min-width: 112px;
             }
             QPushButton:hover{
-                background:rgba(255,255,255,0.08);
+                color:#FFFFFF;
+                background:rgba(59,130,246,0.14);
+                border:1px solid rgba(96,165,250,0.28);
             }
         """
 
@@ -282,14 +251,15 @@ class MainWindow(QMainWindow):
             QPushButton{
                 background:qlineargradient(
                     x1:0,y1:0,x2:1,y2:0,
-                    stop:0 #2563eb,
-                    stop:1 #3b82f6
+                    stop:0 #2563EB,
+                    stop:1 #60A5FA
                 );
-                color:#ffffff;
-                font-weight:700;
-                border:none;
+                color:#FFFFFF;
+                font-weight:900;
+                border:1px solid rgba(191,219,254,0.35);
                 border-radius:16px;
-                padding:10px 18px;
+                padding:10px 16px;
+                min-width: 112px;
             }
         """
 
@@ -297,8 +267,8 @@ class MainWindow(QMainWindow):
         self._nav_labels = {}
 
         self.top_nav = QHBoxLayout()
-        self.top_nav.setSpacing(4)
-        self.top_nav.setContentsMargins(0, 0, 0, 0)
+        self.top_nav.setSpacing(3)
+        self.top_nav.setContentsMargins(8, 6, 8, 6)
 
         for btn in self.nav_buttons:
             self._nav_labels[btn] = btn.text()
@@ -310,13 +280,19 @@ class MainWindow(QMainWindow):
             self.top_nav.addWidget(btn)
 
         self.top_nav_widget = QWidget()
+        self.top_nav_widget.setObjectName("TopNavWidget")
         self.top_nav_widget.setLayout(self.top_nav)
         self.top_nav_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.top_nav_widget.setStyleSheet("""
+            QWidget#TopNavWidget{
+                background:rgba(2,6,23,0.88);
+                border:1px solid rgba(59,130,246,0.18);
+                border-radius:20px;
+            }
+        """)
 
-        top_bar.addWidget(self.top_nav_widget)
-        top_bar.addWidget(self.help_btn)
+        top_bar.addWidget(self.top_nav_widget, 1)
         top_bar.addWidget(self.level_switch)
-        top_bar.addWidget(self.refresh_btn)
 
         # =====================================
         # BODY
@@ -469,7 +445,7 @@ class MainWindow(QMainWindow):
         body.setStretch(0, 1)
 
         self.main_layout.addLayout(top_bar)
-        self.main_layout.addLayout(body)
+        self.main_layout.addLayout(body, 1)
 
         # =====================================
         # EVENTS
@@ -478,11 +454,6 @@ class MainWindow(QMainWindow):
         EventBus.subscribe(
             "OPEN_RESULTS_ENTRY",
             self.open_results_entry
-        )
-
-        EventBus.subscribe(
-            "THEME_CHANGED",
-            self._apply_theme
         )
 
         # =====================================
@@ -499,13 +470,17 @@ class MainWindow(QMainWindow):
         # =====================================
         # WINDOW GEOMETRY
         # =====================================
-        # 1. Set a fixed window size. This also disables resizing and the maximize button.
-        self.setFixedSize(1366, 768)
+        # Use 95% of the available desktop area so the app does not hide behind
+        # the OS panel/title bar on 1366x768 screens.
+        available = self.screen().availableGeometry()
+        self.resize(
+            int(available.width() * 0.95),
+            int(available.height() * 0.95)
+        )
+        self.setMinimumSize(1100, 650)
 
-        # 2. Center the window on the screen.
         qr = self.frameGeometry()
-        cp = self.screen().availableGeometry().center()
-        qr.moveCenter(cp)
+        qr.moveCenter(available.center())
         self.move(qr.topLeft())
 
     # =====================================
@@ -552,11 +527,6 @@ class MainWindow(QMainWindow):
         else:
             SystemState.set_level("O_LEVEL")
         self.refresh_all()
-
-    def show_help(self):
-        """Show the Getting Started guide dialog."""
-        dialog = HelpGuideDialog(self)
-        dialog.exec()
 
     def _update_breadcrumb(self, button):
         """Update breadcrumb based on current page."""
@@ -643,11 +613,10 @@ class MainWindow(QMainWindow):
 
                 break
 
-    def _apply_theme(self, theme_name):
-        """Apply theme from settings change event."""
-        self.current_theme = theme_name
+    def _apply_theme(self, theme_name="Current"):
+        """Apply the single supported application theme."""
+        self.current_theme = "Current"
+
         app = QApplication.instance()
         if app:
-            app.setStyleSheet(get_theme(theme_name))
-        self._update_theme_btn()
-        self._persist_theme(theme_name)
+            app.setStyleSheet(get_theme("Current"))
